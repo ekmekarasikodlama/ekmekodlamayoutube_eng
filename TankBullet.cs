@@ -31,7 +31,7 @@ private void OnCollisionEnter(Collision collision)
             impactangle = Vector3.Angle(collision.contacts[0].normal, transform.position);
             impactangle -= 180;
             impactangle = Mathf.Abs(impactangle);
-            losArmor = collided.thickness / Mathf.Sign(impactangle);
+            losArmor = collided.thickness / Mathf.Sin(impactangle);
             losArmor = Mathf.Abs(losArmor);
             if (impactangle > 90) { impactangle -= 90; }
             if (impactangle > ricochetAngle)
