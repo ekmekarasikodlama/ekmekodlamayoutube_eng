@@ -1,23 +1,43 @@
+ public enum bulletType
+    {
+        solid,
+        explosive
+    }
+    // Start is called before the first frame update
 
- Vector3 lastPosition;
- float distanceTravelled = 0;
-    
-void Start()
-{
-lastPosition = transform.position;
-}
-void Update()
-{
-   distanceTravelled += Vector3.Distance(lastPosition, transform.position);
+    public float explosionRadius = 10f;
+    public float explosivePower = 10f;
+    public float rawDamage = 50;
+    public float penetrationCapability;
+    public float bulletSize = 1f;
+    public float destroyTime = 10f;
+    public float ricochetProbability = 60;
+    public float ricochetAngle = 70;
+    public float penetrationDecreasePer100Meters = 2;
+    public bulletType typeOfBullet;
+
+    bool canDamage = true;
+
+    Vector3 lastPosition;
+    float distanceTravelled = 0;
+    public void activate()
+    {
+        Destroy(gameObject, destroyTime);
         lastPosition = transform.position;
-}
+    }
 
 
-private void OnCollisionEnter(Collision collision)
+    private void Update()
+    {
+        distanceTravelled += Vector3.Distance(lastPosition, transform.position);
+        lastPosition = transform.position;
+    }
+
+    private void OnCollisionEnter(Collision collision)
     {
         EffectHolder.instance.createEffect("shootImpact", collision.contacts[0].point, collision.collider.transform, collision.contacts[0].normal, 5f, new Vector3(bulletSize, bulletSize, bulletSize));
 
-        if (collision.collider.transform.root.GetComponent<TankManager>() == false && canDamage && collision.collider.GetComponent<Armor>())
+        if (canDamage && collision.collider.GetComponent<Armor>())
         {
             Armor collided = collision.collider.GetComponent<Armor>();
 
@@ -26,14 +46,20 @@ private void OnCollisionEnter(Collision collision)
 
             EffectHolder.instance.createEffect("metalImpact", impactPoint, collision.collider.transform, collision.contacts[0].normal, 5f, new Vector3(bulletSize, bulletSize, bulletSize));
 
+            if (typeOfBullet == bulletType.explosive)
+            {
+                EffectHolder.instance.createEffect("explosion", impactPoint, collision.collider.transform, collision.contacts[0].normal, 5f, new Vector3(bulletSize, bulletSize, bulletSize));
+            }
+
             float losArmor;
             float impactangle;
             impactangle = Vector3.Angle(collision.contacts[0].normal, transform.position);
             impactangle -= 180;
             impactangle = Mathf.Abs(impactangle);
+
             losArmor = collided.thickness / Mathf.Sin(impactangle);
             losArmor = Mathf.Abs(losArmor);
-            if (impactangle > 90) { impactangle -= 90; }
+
             if (impactangle > ricochetAngle)
             {
                 if (Random.Range(0, 100) < ricochetProbability)
@@ -41,6 +67,7 @@ private void OnCollisionEnter(Collision collision)
                     ricochet = true;
                 }
             }
+            Debug.Log("LOS Armor: " + losArmor + "Impact Angle: " + impactangle);
             bool continueDamage = true;
             if (collided.GetType() == typeof(TankComponent))
             {
@@ -48,23 +75,24 @@ private void OnCollisionEnter(Collision collision)
                 component.damageComponent();
                 continueDamage = false;
             }
-            if(continueDamage && !ricochet)
+            if (continueDamage && !ricochet)
             {
                 float penetrationHolder = penetrationCapability;
-                if(collided.GetType() == typeof(ERAArmor))
+                if (collided.GetType() == typeof(ERAArmor))
                 {
                     ERAArmor era = (ERAArmor)collided;
-                    if(era.durability > 0)
+                    if (era.durability > 0)
                     {
                         float eraEfficiency = 0;
                         float penetrationReduce;
 
-                        if(typeOfBullet == bulletType.solid)
+                        if (typeOfBullet == bulletType.solid)
                         {
-                             eraEfficiency = era.durability / era.originalDurability * era.KEEfficiency;
-                        }else if(typeOfBullet == bulletType.explosive)
+                            eraEfficiency = era.durability / era.originalDurability * era.KEEfficiency;
+                        }
+                        else if (typeOfBullet == bulletType.explosive)
                         {
-                             eraEfficiency = era.durability / era.originalDurability * era.HEEfficiency;
+                            eraEfficiency = era.durability / era.originalDurability * era.HEEfficiency;
                         }
                         penetrationReduce = penetrationHolder * (eraEfficiency / 100);
                         penetrationHolder -= penetrationReduce;
@@ -76,20 +104,21 @@ private void OnCollisionEnter(Collision collision)
                 float penetrationDifference = penetrationHolder / penetrationCapability;
                 float compositeReduce = 0;
 
-                if(typeOfBullet == bulletType.solid)
+                if (typeOfBullet == bulletType.solid)
                 {
                     float Travelled100Units = distanceTravelled / 100;
                     float travelDecrease = Travelled100Units * penetrationDecreasePer100Meters;
-                     compositeReduce = collided.KEReduction / 100 * penetrationHolder;
+                    penetrationHolder -= travelDecrease;
+                    compositeReduce = collided.KEReduction / 100 * penetrationHolder;
                     rawDamage -= penetrationDifference * 2;
                 }
-                else if(typeOfBullet == bulletType.explosive)
+                else if (typeOfBullet == bulletType.explosive)
                 {
                     compositeReduce = collided.HEReduction / 100 * penetrationHolder;
                 }
                 penetrationHolder -= compositeReduce;
 
-                if(losArmor < penetrationHolder)
+                if (losArmor < penetrationHolder)
                 {
                     collided.registerDamage(rawDamage);
                 }
@@ -108,7 +137,7 @@ private void OnCollisionEnter(Collision collision)
             }
             canDamage = false;
         }
-       
+
 
 
     }
